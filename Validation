@@ -1,0 +1,113 @@
+##PARAMETROS DE AVALIAÇÃO SEM CORPOS HIDRICOS
+
+ linear <- nls(formula=y~b0+b1*x, data=daa, start=list(b0=29.2443, b1=-9.4391), trace=TRUE)
+ exponencial <- nls(formula=y~b0*exp(b1*x), data=daa, start=list(b0=29.4146, b1=-0.3652), trace=TRUE)
+ senosseidal <- nls(formula=y~b0+b1*cos(b2*x+b3), data=daa, start=list(b0=26.3643, b1=2.2306, b2=7.2025
+, b3=-0.5356), trace=TRUE)
+
+ # soma de quadrado dos resíduos (menor melhor)
+ 
+Require (latticeExtra)
+
+sqr <- c(deviance(nl), deviance(ne), deviance(nc)); sqr
+
+sqrt(sqr/df.residual(nl))
+
+c(logLik(nl), logLik(ne), logLik(nc))
+
+c(AIC(nl), AIC(ne), AIC(nc))
+
+c(BIC(nl), BIC(ne), BIC(nc))
+
+ sqrm <- deviance(lm(y~1, data=daa))
+1-sqr/sqrm
+
+
+
+
+
+
+
+
+########validacão Cruzada k-fold###################
+library(lattice)
+library(latticeExtra)
+
+# Número de observações e quantidade de folds para dividir os dados.
+eta=linear #####Substituir pela função desejada
+n <- nrow(daa)
+k <- 10
+daa$i <- ceiling((1:n)/(n/k))
+das <- split(daa, f = daa$i)
+str(das)
+form <- replicate(k, y ~ x)
+names(form) <- sprintf("fold %d", 1:k)
+xyplot.list(form,
+            data = daa,
+            type = "n",
+            xlab = "Grau do polinômio",
+            ylab = "Erro",
+            cex = 0.6,
+            as.table = TRUE) +
+  layer(panel.curve(eta, col = "orange", lwd = 3)) +
+  layer(panel.points(x = x[daa$i != packet.number()],
+                     y = y[daa$i != packet.number()])) +
+  layer(panel.points(x = x[daa$i == packet.number()],
+                     y = y[daa$i == packet.number()],
+                     pch = 19,
+                     cex = 0.6,
+                     col = "red")) +
+  layer(panel.grid(), under = TRUE)
+
+# Avaliando cenários varrendo os fold e variando o grau do polinômio.
+
+cen <- expand.grid(fold = 1:k, deg = 1:15)
+
+# Avaliando cada cenário.
+
+kfol <- mapply(f = cen$fold,
+               d = cen$deg,
+               FUN = function(f, d) {
+                 
+# Ajuste do modelo aos dados de treinamento.
+                 j <- da$i != f
+                 m0 <- lm(y ~ poly(x, degree = d), data = subset(daa, j))
+                
+ # Predição com os dados de treino e de teste.
+                 yhat_inter <- predict(m0, newdata = subset(da, j)) 
+# Dados de treino.
+                 yhat_exter <- predict(m0, newdata = das[[f]])     # Dados de teste.
+                
+ # Erros de predição
+                 Etra <- crossprod(subset(daa, j)$y - yhat_inter)/length(yhat_inter)
+                 Eval <- crossprod(das[[f]]$y - yhat_exter)/length(yhat_exter)
+                 
+# Retorno.
+                 c(ErrTra = Etra, ErrVal = Eval)
+               })
+
+kfol <- cbind(cen, as.data.frame(t(kfol)))
+
+# Curva de erro em cada fold.
+
+xyplot(ErrTra + ErrVal ~ deg | factor(fold),
+       data = kfol,
+       xlab = "Grau do polinômio",
+       ylab = "Erro",
+       as.table = TRUE,
+       auto.key = list(corner = c(0.95, 0.95)),
+       type = "o")
+
+# Os folds juntos para um mesmo tipo de erro.
+
+xyplot(ErrTra + ErrVal ~ deg,
+       xlab = "Grau do polinômio",
+       ylab = "Erro",
+       groups = fold,
+       data = kfol,
+       type = "o") +
+  layer(panel.xyplot(x = x,
+                     y = y,
+                     type = "a",
+                     col = "black",
+                     lwd = 2))
